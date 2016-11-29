@@ -14,38 +14,6 @@ namespace ManageDevices
 {
     public partial class Main : Form
     {
-        /* 
-           Pretty sure we can go ahead and remove this code,
-           DriveDetector can handle this better.
-        */
-
-        //private const int WM_DEVICECHANGE = 0x219;
-        //private const int DBT_DEVICEARRIVAL = 0x8000;
-        //private const int DBT_DEVICEREMOVECOMPLETE = 0x8004;
-        //private const int DBT_DEVICETYP_VOLUME = 0x00000002;
-
-        /*
-        protected override void WndProc(ref Message m)
-        {
-            base.WndProc(ref m);
-
-            switch (m.Msg)
-            {
-                case WM_DEVICECHANGE:
-                    switch ((int)m.WParam)
-                    {
-                        case DBT_DEVICEARRIVAL:
-                            listBox1.Items.Add("Device Connected");
-                            break;
-                        case DBT_DEVICEREMOVECOMPLETE:
-                            listBox1.Items.Add("Removed");
-                            break;
-                    }
-                    break;
-            }
-        }
-        */
-
         /*
             DriveDetector is an open source class written to handle notifications
             about drive insertion/removal. It also provides infromation about the inserted
@@ -59,7 +27,11 @@ namespace ManageDevices
         
         public Main()
         {
+            
+
             InitializeComponent();
+            //Hide non-functional 'Save Prefs' button for now
+            button1.Hide();
             /*
             try
             {
@@ -345,6 +317,16 @@ namespace ManageDevices
             }                                    
         }
 
+        /// <summary>
+        /// This is for the currently non-functional 'Save prefs' button.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        //private void button1_Click(object sender, EventArgs e)
+        //{
+
+        //}
+
 
         // Load all the important folders to the treeView list
         private void Form1_Load(object sender, EventArgs e)
@@ -400,16 +382,18 @@ namespace ManageDevices
         // To get the files from within a folder and display in the listbox
         private void treeView1_AfterSelect(object sender, TreeViewEventArgs e)
         {
+            //Disable dangerous buttons when directory is selected.
+            button3.Enabled = false;
+            button2.Enabled = false;
+            button4.Enabled = false;
+
             listBox1.Items.Clear();
             DirectoryInfo dir = (DirectoryInfo)treeView1.SelectedNode.Tag;
             FileInfo[] fInfo = dir.GetFiles();
             foreach(FileInfo file in fInfo)
-            {
-                  
+            {                  
                 listBox1.Items.Add(file);
-             }
-           
-
+            }               
         }
 
         //method to pass in files that are selected
@@ -424,6 +408,11 @@ namespace ManageDevices
                    
         }
 
+        public object selectedFile
+        {
+            get { return listBox1.SelectedItem; }
+        }
+
         public string selected
         {
             get { return listBox1.SelectedItem.ToString(); }
@@ -433,17 +422,39 @@ namespace ManageDevices
         {
 
         }
+        
+        private void listBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            //Re-enable funcitonal buttons for file management.
+            button2.Enabled = true;
+            button3.Enabled = true;
+            button4.Enabled = true;
 
+            //Clear selected node in the tree view 
+            //(so _AfterSelect event can trigger again)
+            treeView1.SelectedNode = null;           
+        }
+
+        //Sync button
         private void button4_Click(object sender, EventArgs e)
         {
+            button4.Hide();
             // Compare the two files that referenced in the textbox controls.
-            string fileName = (new FileInfo(listBox1.GetItemText(listBox1.SelectedItem))).Name;
+            FileInfo baseFile = (FileInfo)selectedFile;
+            string fileName = baseFile.Name;
             string file1 = driveLetter + fileName;
-            string file2 = searchFileName(fileName);
+            string file2 = searchFileName(baseFile.Name);
 
-            if(string.IsNullOrEmpty(file2))
+            if(baseFile == null)
             {
-                MessageBox.Show(fileName + " does not exist.");
+                MessageBox.Show("Please select a file to sync.");
+            }
+
+            if(!searchFlashDrive(baseFile))
+            {
+                MessageBox.Show(fileName + " does not exist.\n"
+                                 +"Adding file to usb.");                
+                File.Copy(baseFile.FullName, driveLetter + baseFile.Name);
             }
             else
             {
