@@ -39,9 +39,9 @@
             this.SuspendLayout();
             // 
             // button1
-            // 
+            //         
             this.button1.Location = new System.Drawing.Point(403, 97);
-            this.button1.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.button1.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);           
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(100, 28);
             this.button1.TabIndex = 0;
