@@ -9,11 +9,13 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 using Dolinay;
+using System.Threading;
 
 namespace ManageDevices
 {
     public partial class Main : Form
     {
+
         /*
             DriveDetector is an open source class written to handle notifications
             about drive insertion/removal. It also provides infromation about the inserted
@@ -24,13 +26,10 @@ namespace ManageDevices
         private String arrivalMessage = "";
         private String removalMessage = "";
         private String driveLetter = "";
-        
+        private String filename = "files.txt";
         public Main()
         {
-            
-
             InitializeComponent();
-            //Hide non-functional 'Save Prefs' button for now
             button1.Hide();
             /*
             try
@@ -91,11 +90,11 @@ namespace ManageDevices
             {
                 return desktopPath;
             }
-            else if((new FileInfo(myDocumentsPath)).Exists)
+            else if ((new FileInfo(myDocumentsPath)).Exists)
             {
                 return myDocumentsPath;
             }
-            else if((new FileInfo(myPicturesPath)).Exists)
+            else if ((new FileInfo(myPicturesPath)).Exists)
             {
                 return myPicturesPath;
             }
@@ -195,7 +194,7 @@ namespace ManageDevices
             removalMessage = "Device " + e.Drive + " Removed";
             driveLetter = "";
             listBox1.Items.Clear();
-            listBox1.Items.Add(removalMessage);                        
+            listBox1.Items.Add(removalMessage);
             //listBox1.Update();
         }
 
@@ -213,74 +212,67 @@ namespace ManageDevices
 
         /* --THIS IS A TEST OF THE DriveDetector CLASS-- */
 
+        /**
+         *  Method: GetDirectories
+         *  Purpose: This method adds the subdirectories under their Parent Directory 
+         *  in the tree Node and keeps calling on this method until there 
+         *  are no more directories to add
+         **/
         private void GetDirectories(DirectoryInfo[] subDirs, TreeNode nodeToAddTo)
         {
             TreeNode aNode;
-            DirectoryInfo[] subSubDirs; 
-           
+            DirectoryInfo[] subSubDirs;
+
+            // Gets each folder in the parent folder (subDir)
             foreach (DirectoryInfo subDir in subDirs)
-                {
+            {
                 try
                 {
+                    // Sets up a node as subDir
                     aNode = new TreeNode(subDir.Name, 0, 0);
+                    // Stores information about folder in the Tag
                     aNode.Tag = subDir;
+                    // gets other folders within the subDir
                     subSubDirs = subDir.GetDirectories();
-                    
+                    // If there are folders within subDir, then call on this method again
                     if (subSubDirs.Length != 0)
                     {
                         GetDirectories(subSubDirs, aNode);
                     }
+                    //Adds node to the tree
                     nodeToAddTo.Nodes.Add(aNode);
                 }
                 catch (Exception e) { }
             }
-            
+
+        }
+
+        private Boolean isFlashDriveInserted()
+        {
+            return Directory.Exists(driveLetter);
         }
 
         // Add button
         private void button2_Click(object sender, EventArgs e)
         {
-            //Form2 frm = new ManageDevices.Form2(this);
-            //frm.ShowDialog();
-            String filename = "files.txt";
-            String caption, message;
-            DialogResult result;
-            // Checks if flash drive is in
-            if (Directory.Exists(driveLetter))
-            {
-                caption = "Add File";
-                message = "File(s) don't match. \nWould you like to create a new file(s)?";
-                result = MessageBox.Show(message, caption, MessageBoxButtons.YesNo);
-            }
+            List<FileInfo> fl = (List<FileInfo>)selected;
             // If no flash drive then error message is given so drive can be inserted first before adding
+            if (!isFlashDriveInserted())
+            {
+                String caption = "Error";
+                String message = "Error! No Flash Drive found. \nFlash Drive required before trying to add files to it.";
+                DialogResult result = MessageBox.Show(message, caption, MessageBoxButtons.OK);
+            }
+            // Else calls on form2 to add Files
             else
             {
-                caption = "Error";
-                message = "Error! No Flash Drive found. \nFlash Drive required before trying to add files to it.";
-                result = MessageBox.Show(message, caption, MessageBoxButtons.OK);
+                Form2 frm = new ManageDevices.Form2(this);
+                frm.ShowDialog();
             }
-            
-            if (result == DialogResult.Yes)
-            {
-                foreach (FileInfo fi in (List<FileInfo>)delSelected)
-                {
-                    //Writes files to be added to a text file that can be read from later.
-                    using (StreamWriter sw = new StreamWriter(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename), true))
-                    {
-                        sw.WriteLine(fi.ToString());
-                        //Check if file is already present in flash drive, if not then adds it to flash drive
-                        if (searchFlashDrive(fi) == false) 
-                        {
-                            File.Copy(Path.Combine(fi.Directory.FullName, fi.ToString()), Path.Combine(driveLetter, fi.ToString()), true);
-                        }
-                    }
-                }
-            }
-            listBox1.Update();
         }
-        
+
         // Search Flash Drive for a File
-        private Boolean searchFlashDrive(FileInfo fi)
+        public Boolean searchFlashDrive(FileInfo fi)
         {
             DirectoryInfo dri = new DirectoryInfo(driveLetter);
             foreach (FileInfo f in dri.GetFiles())
@@ -296,41 +288,27 @@ namespace ManageDevices
         // Delete button
         private void button3_Click(object sender, EventArgs e)
         {
-            //Form4 del = new ManageDevices.Form4(this); // Added this to form4
-            //del.Show();
-            String caption = "Delete File";
-            String message = "Are you sure you want to delete this file(s)?";
-            DialogResult result = MessageBox.Show(message, caption, MessageBoxButtons.YesNo);
-
-            if (result == DialogResult.Yes)
+            List<FileInfo> fl = (List<FileInfo>)selected;
+            // If not files were selected, then show user error
+            if (!fl.Any())
             {
-                foreach(FileInfo fi in (List<FileInfo>)delSelected)
-                {
-                    fi.Delete();
-                }
-                for (int x = listBox1.SelectedIndices.Count - 1; x >= 0; x--)
-                {
-                    int idx = listBox1.SelectedIndices[x];
-                    listBox1.Items.RemoveAt(idx);
-                }
-                listBox1.Update();
-            }                                    
+                String caption = "Error";
+                String message = "No file was selected";
+                DialogResult result = MessageBox.Show(message, caption, MessageBoxButtons.OK);
+            }
+            else
+            {
+                // passed 'this' to Form4 constructor to access Main
+                Form4 del = new ManageDevices.Form4(this);
+                // Calls on method to show the Delete File form    
+                del.Show();
+            }
         }
-
-        /// <summary>
-        /// This is for the currently non-functional 'Save prefs' button.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        //private void button1_Click(object sender, EventArgs e)
-        //{
-
-        //}
 
 
         // Load all the important folders to the treeView list
         private void Form1_Load(object sender, EventArgs e)
-        {   
+        {
             try
             {
                 Directory.SetCurrentDirectory(System.Environment.GetFolderPath(Environment.SpecialFolder.Desktop));
@@ -355,27 +333,33 @@ namespace ManageDevices
         /// <param name="s"></param>
         private void RemoveFromTree(string s)
         {
-            foreach(TreeNode t in treeView1.Nodes)
+            foreach (TreeNode t in treeView1.Nodes)
             {
-                if (t.Text == s){
+                if (t.Text == s)
+                {
                     treeView1.Nodes.Remove(t);
                 }
             }
         }
 
+        // This method adds the main folders to the Tree as roots
         private void addToTree(string s)
         {
             try
             {
                 TreeNode root;
+
                 DirectoryInfo dri = new DirectoryInfo(s);
 
-
+                // 'root' holds the name of the Directory
                 root = new TreeNode(dri.Name);
+                // the Tag holds the information about the folder
                 root.Tag = dri;
+                // Adds all of the root's subdirectories to the Tree 
                 GetDirectories(dri.GetDirectories(), root);
                 treeView1.Nodes.Add(root);
-            }   catch (Exception ex) { MessageBox.Show(ex.Message); }
+            }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
 
         }
 
@@ -390,39 +374,45 @@ namespace ManageDevices
             listBox1.Items.Clear();
             DirectoryInfo dir = (DirectoryInfo)treeView1.SelectedNode.Tag;
             FileInfo[] fInfo = dir.GetFiles();
-            foreach(FileInfo file in fInfo)
-            {                  
-                listBox1.Items.Add(file);
-            }               
-        }
-
-        //method to pass in files that are selected
-        public object delSelected
-        {
-            get
+            foreach (FileInfo file in fInfo)
             {
-                List<FileInfo> list = new List<FileInfo>();
-                list = listBox1.SelectedItems.Cast<FileInfo>().ToList();
-                return list; 
+                listBox1.Items.Add(file);
             }
-                   
+
+
         }
 
+        // returns ListBox
+        public ListBox getList { get { return listBox1; } }
+
+        // returns DriveLetter
+        public String getDriveLetter { get { return driveLetter; } }
+
+        //Returns the selected file in the listbox,
+        //make sure to cast to a FileInfo
         public object selectedFile
         {
             get { return listBox1.SelectedItem; }
         }
 
-        public string selected
+        //method to pass files that are selected
+        public object selected
         {
-            get { return listBox1.SelectedItem.ToString(); }
+            get
+            {
+                List<FileInfo> list = new List<FileInfo>();
+                list = listBox1.SelectedItems.Cast<FileInfo>().ToList();
+                return list;
+            }
+
         }
+
 
         private void label1_Click(object sender, EventArgs e)
         {
 
         }
-        
+
         private void listBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             //Re-enable funcitonal buttons for file management.
@@ -432,7 +422,7 @@ namespace ManageDevices
 
             //Clear selected node in the tree view 
             //(so _AfterSelect event can trigger again)
-            treeView1.SelectedNode = null;           
+            treeView1.SelectedNode = null;
         }
 
         //Sync button
@@ -445,15 +435,17 @@ namespace ManageDevices
             string file1 = driveLetter + fileName;
             string file2 = searchFileName(baseFile.Name);
 
-            if(baseFile == null)
+            if (baseFile == null)
             {
                 MessageBox.Show("Please select a file to sync.");
             }
 
-            if(!searchFlashDrive(baseFile))
+            if (!searchFlashDrive(baseFile))
             {
                 MessageBox.Show(fileName + " does not exist.\n"
-                                 +"Adding file to usb.");                
+                                 + "Adding file to usb.");
+                //If the file does not exist in the flashdrive
+                //add it to the flashdrive.
                 File.Copy(baseFile.FullName, driveLetter + baseFile.Name);
             }
             else
@@ -466,6 +458,112 @@ namespace ManageDevices
                 {
                     MessageBox.Show(syncFile(file1, file2));
                 }
+            }
+        }
+
+        ////Sync Button
+        //private void button4_Click(object sender, EventArgs e)
+        //{
+        //    // Compare the two files that referenced in the textbox controls.
+        //    string fileName = (new FileInfo(listBox1.GetItemText(listBox1.SelectedItem))).Name;
+        //    string file1 = driveLetter + fileName;
+        //    string file2 = searchFileName(fileName);
+        //    if (string.IsNullOrEmpty(file2))
+        //    {
+        //        MessageBox.Show(fileName + " does not exist.");
+        //    }
+        //    else
+        //    {
+        //        if (FileCompare(file1, file2))
+        //        {
+        //            MessageBox.Show(fileName + " is synced.");
+        //        }
+        //        else
+        //        {
+        //            MessageBox.Show(syncFile(file1, file2));
+        //        }
+        //    }
+        //}
+
+        //Returns to see if the Auto-Update check mark is selected or not
+        public bool OptionSelected
+        {
+            get { return checkBox1.Checked; }
+        }
+
+        //Once Auto-Update is checked yes or no it does one of the following
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+            //If selected to auto-update
+            //It shows its balloon tip and turns the icon blue
+            if (OptionSelected)
+            {
+                this.Hide();
+                trayIcon.ShowBalloonTip(5);
+                trayIcon.Icon = new Icon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "blue_icon.ico"));
+                autoUpdate.RunWorkerAsync();
+            }
+            //If auto-update is deselected
+            //Turns icon red and gives balloon tool tip
+            if (!OptionSelected)
+            {
+                trayIcon.Icon = new Icon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "red_icon.ico"));
+                trayIcon.ShowBalloonTip(5, "Auto-Update disabled", "Files will no longer be automatically updated", new ToolTipIcon());
+            }
+        }
+
+        //Shows main menu once icon is double clicked
+        private void trayIcon_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            this.Show();
+        }
+
+        //Does the auto-update work here
+        //uses a while loop to see that while auto-update is selected it will
+        //run this routine over until deselected with 30 second sleep intervals in between
+        private void autoUpdate_DoWork(object sender, DoWorkEventArgs e)
+        {
+            while (OptionSelected)
+            {
+                //Reads in text file
+                System.IO.StreamReader file = new System.IO.StreamReader(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename));
+                string line;
+                string file1;
+                string file2;
+                //Bool used in case files aren't found or flash drive isn't in
+                //if neither of those issues occur it'll give the balloon tool tip 
+                //that lets the user know everything has been synced
+                bool fileNotFound = false;
+                while ((line = file.ReadLine()) != null)
+                {
+                    file1 = searchFileName(line);
+                    file2 = getDriveLetter + line;
+                    //If the file is found and the flash drive is inserted the files are synced
+                    if (file1 != "" && isFlashDriveInserted())
+                    {
+                        syncFile(file1, file2);
+                    }
+                    //If no flash drive is found then gives error message and marks the boolean as true
+                    else if (!isFlashDriveInserted())
+                    {
+                        fileNotFound = true;
+                        trayIcon.ShowBalloonTip(5, "Auto-Update Error", "No flash drive inserted", new ToolTipIcon());
+                    }
+                    //final else case is incase the file isn't found in the computer it'll give the error message 
+                    //letting the user know which file wasn't found
+                    else
+                    {
+                        fileNotFound = true;
+                        trayIcon.ShowBalloonTip(5, "Auto-Update Error", "File(s) " + line + " not found. ", new ToolTipIcon());
+                    }
+                }
+                //if no errors then returns quick update letting user know files are synced
+                if (!fileNotFound)
+                {
+                    trayIcon.ShowBalloonTip(5, "Auto-Update", "Files synced and up to date", new ToolTipIcon());
+                }
+                file.Close();
+                Thread.Sleep(30000);
             }
         }
     }
